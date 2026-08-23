@@ -1,0 +1,42 @@
+# Maven build output
+target/
+
+# Compiled class files
+*.class
+
+# IDE - VS Code
+.vscode/
+*.code-workspace
+
+# IDE - IntelliJ (in case you switch later or a teammate uses it)
+.idea/
+*.iml
+*.iws
+
+# IDE - Eclipse
+.project
+.classpath
+.settings/
+
+# Playwright
+node_modules/
+playwright-report/
+test-results/
+.playwright/
+
+# Allure reports (generated, shouldn't be committed)
+allure-results/
+allure-report/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Environment / secrets - never commit these
+.env
+*.properties.local
+config/secrets.properties
