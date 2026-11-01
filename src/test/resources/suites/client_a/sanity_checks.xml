@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Framework Sanity Suite">
+
+    <test name="Playwright API Sanity">
+        <classes>
+            <class name="dinuka.automation.client_a.api_tests.PlaywrightAPISanityTest" />
+        </classes>
+    </test>
+
+    <test name="REST Assured API Sanity">
+        <classes>
+            <class name="dinuka.automation.client_a.api_tests.RestAssuredAPISanityTest" />
+        </classes>
+    </test>
+
+    <test name="Playwright UI Sanity">
+        <classes>
+            <class name="dinuka.automation.client_a.ui_tests.PlaywrightUISanityTest" />
+        </classes>
+    </test>
+
+    <!-- SeleniumBaseTest#setUp requires "browser" and "headless" suite params -
+         unlike PlaywrightBaseTest these are not @Optional/defaulted. -->
+    <test name="Selenium UI Sanity">
+        <parameter name="browser" value="chrome" />
+        <parameter name="headless" value="false" />
+        <classes>
+            <class name="dinuka.automation.client_a.ui_tests.SeleniumUISanityTest" />
+        </classes>
+    </test>
+
+</suite>
+
+<!-- Remove-Item -Recurse -Force .\allure-results; mvn test "-DsuiteXmlFile=src/test/java/dinuka/automation/resources/suites/client_a/sanity_checks.xml" -->
