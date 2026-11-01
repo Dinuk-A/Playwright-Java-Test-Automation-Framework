@@ -1,72 +1,67 @@
 package com.dinuka.automation.client_a.api_tests;
 
-import com.dinuka.automation.utils.api.playwright.PWAPIBaseTest;
-import com.dinuka.automation.utils.api.playwright.PWAPIUtils;
-import com.dinuka.automation.utils.api.playwright.PWAssertionUtils;
-import com.microsoft.playwright.APIResponse;
+import com.dinuka.automation.utils.api.restassured.ApiUtils;
+import com.dinuka.automation.utils.api.restassured.AssertionUtils;
 import io.qameta.allure.Description;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import io.qameta.allure.Story;
-import org.testng.annotations.BeforeMethod;
+import io.restassured.response.Response;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
+
 /**
- * Sanity checks for the Playwright API stack: Playwright's
- * APIRequestContext + PWAPIBaseTest + PWAPIUtils/PWAssertionUtils.
+ * Sanity checks for the REST Assured API stack: REST Assured +
+ * ApiUtils/AssertionUtils.
  *
- * Runs against jsonplaceholder.typicode.com, a free public fake-REST-API
- * used for prototyping - no project-specific dependencies.
+ * Runs against jsonplaceholder.typicode.com - same public API used by the
+ * Playwright API sanity suite, so both stacks can be compared side by side.
  */
 @Epic("Framework Sanity Checks")
-public class PlaywrightAPISanityTest extends PWAPIBaseTest {
+public class RestAssuredAPISanityTest {
 
     private static final String BASE_URL = "https://jsonplaceholder.typicode.com";
 
-    private PWAPIUtils api;
-
-    @BeforeMethod(alwaysRun = true)
-    public void setupRequest() {
-        createApiContext(BASE_URL);
-        api = new PWAPIUtils(request);
-    }
-
     @Test(groups = { "sanity" })
-    @Story("Playwright API - GET")
-    @Description("Verify a basic GET request returns 200 and the expected JSON shape")
+    @Story("REST Assured API - GET")
+    @Description("Verify a basic GET request returns 200 and the expected JSON field values")
     @Severity(SeverityLevel.BLOCKER)
-    public void testGetSinglePostReturnsExpectedFields() {
-        APIResponse response = api.get("/posts/1");
+    public void testGetSingleUserReturnsExpectedFields() {
+        Response response = ApiUtils.getRequest(BASE_URL, "/users/1");
 
-        PWAssertionUtils.assertStatusCode(response, 200);
-        PWAssertionUtils.assertContentType(response, "application/json");
-        PWAssertionUtils.assertJsonFieldEquals(response, "id", 1);
-        PWAssertionUtils.assertJsonFieldNotNull(response, "title");
-        PWAssertionUtils.assertJsonFieldNotNull(response, "body");
+        AssertionUtils.assertStatusCode(response, 200);
+        AssertionUtils.assertContentType(response, "application/json");
+        AssertionUtils.assertJsonFieldEquals(response, "id", 1);
+        AssertionUtils.assertJsonFieldNotNull(response, "email");
+        AssertionUtils.assertJsonFieldNotNull(response, "username");
     }
 
     @Test(groups = { "sanity" })
-    @Story("Playwright API - POST")
-    @Description("Verify a POST request with a JSON body is accepted and echoed back")
+    @Story("REST Assured API - Query Params")
+    @Description("Verify a GET with query parameters filters results correctly")
     @Severity(SeverityLevel.CRITICAL)
-    public void testCreatePostEchoesSubmittedBody() {
-        String requestBody = "{\"title\":\"sanity check\",\"body\":\"validating the Playwright API stack\",\"userId\":1}";
+    public void testGetPostsFilteredByUserId() {
+        Response response = ApiUtils.getReqWithQueryParams(BASE_URL, "/posts", Map.of("userId", "1"));
 
-        APIResponse response = api.postJson("/posts", requestBody);
+        AssertionUtils.assertStatusCode(response, 200);
 
-        PWAssertionUtils.assertStatusCode(response, 201);
-        PWAssertionUtils.assertJsonFieldEquals(response, "title", "sanity check");
-        PWAssertionUtils.assertJsonFieldNotNull(response, "id");
+        List<Integer> returnedUserIds = response.jsonPath().getList("userId", Integer.class);
+        Assert.assertFalse(returnedUserIds.isEmpty(), "Expected at least one post for userId=1");
+        Assert.assertEquals(returnedUserIds.stream().distinct().count(), 1,
+                "Expected every returned post to belong to userId=1");
     }
 
     @Test(groups = { "sanity" })
-    @Story("Playwright API - Not Found")
-    @Description("Verify requesting a non-existent resource returns 404, not a silent 200/500")
+    @Story("REST Assured API - Not Found")
+    @Description("Verify requesting a non-existent resource returns 404")
     @Severity(SeverityLevel.NORMAL)
-    public void testGetNonExistentPostReturns404() {
-        APIResponse response = api.get("/posts/999999");
+    public void testGetNonExistentUserReturns404() {
+        Response response = ApiUtils.getRequest(BASE_URL, "/users/999999");
 
-        PWAssertionUtils.assertStatusCode(response, 404);
+        AssertionUtils.assertStatusCode(response, 404);
     }
 }

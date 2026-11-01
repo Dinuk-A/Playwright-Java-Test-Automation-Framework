@@ -4,19 +4,19 @@
 
     <test name="Playwright API Sanity">
         <classes>
-            <class name="dinuka.automation.client_a.api_tests.PlaywrightAPISanityTest" />
+            <class name="com.dinuka.automation.client_a.api_tests.PlaywrightAPISanityTest" />
         </classes>
     </test>
 
     <test name="REST Assured API Sanity">
         <classes>
-            <class name="dinuka.automation.client_a.api_tests.RestAssuredAPISanityTest" />
+            <class name="com.dinuka.automation.client_a.api_tests.RestAssuredAPISanityTest" />
         </classes>
     </test>
 
     <test name="Playwright UI Sanity">
         <classes>
-            <class name="dinuka.automation.client_a.ui_tests.PlaywrightUISanityTest" />
+            <class name="com.dinuka.automation.client_a.ui_tests.PlaywrightUISanityTest" />
         </classes>
     </test>
 
@@ -26,10 +26,10 @@
         <parameter name="browser" value="chrome" />
         <parameter name="headless" value="false" />
         <classes>
-            <class name="dinuka.automation.client_a.ui_tests.SeleniumUISanityTest" />
+            <class name="com.dinuka.automation.client_a.ui_tests.SeleniumUISanityTest" />
         </classes>
     </test>
 
 </suite>
 
-<!-- Remove-Item -Recurse -Force .\allure-results; mvn test "-DsuiteXmlFile=src/test/java/dinuka/automation/resources/suites/client_a/sanity_checks.xml" -->
+<!-- Remove-Item -Recurse -Force .\allure-results; mvn test "-DsuiteXmlFile=src/test/resources/suites/client_a/sanity_checks.xml" -->
