@@ -11,6 +11,7 @@ import com.dinuka.automation.utils.ui.playwright.WaitUtils;
 
 import com.microsoft.playwright.Locator;
 
+import io.qameta.allure.Allure;
 import io.qameta.allure.Description;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Severity;
@@ -25,7 +26,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Epic("Framework Sanity Checks")
@@ -37,16 +38,18 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         // Test Evidence Lifecycle
         // ========================================================================
 
-        /**
-         * Resets assertion evidence before each test.
-         */
         @BeforeMethod(alwaysRun = true)
         public void resetEvidence() {
                 AllureEvidenceLogger.resetLog();
         }
 
+        // ========================================================================
+        // Evidence Helpers
+        // ========================================================================
+
         /**
-         * Captures a screenshot, saves it locally and attaches it to Allure.
+         * Captures a screenshot, saves it locally and attaches it directly
+         * to the currently active Allure test or step.
          */
         private void captureAndAttachScreenshot(String name) {
 
@@ -75,13 +78,94 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         }
 
         /**
-         * Attaches custom test values to Allure.
+         * Attaches custom test values directly to the active Allure step.
          */
         private void attachTestDetails(
                         String attachmentName,
                         Map<String, Object> details) {
 
                 AllureLogger.logCustomFields(attachmentName, details);
+        }
+
+        /**
+         * Creates an ordered map of evidence values.
+         *
+         * Usage:
+         * details("Expected", "Hello", "Actual", actualText)
+         */
+        private Map<String, Object> details(Object... values) {
+
+                Map<String, Object> result = new LinkedHashMap<>();
+
+                for (int i = 0; i < values.length - 1; i += 2) {
+                        result.put(String.valueOf(values[i]), values[i + 1]);
+                }
+
+                return result;
+        }
+
+        /**
+         * Executes an action inside an Allure step.
+         *
+         * Action details and screenshots are attached inside the step,
+         * even if the action fails.
+         */
+        private void executeStepWithEvidence(
+                        String stepName,
+                        Map<String, Object> stepDetails,
+                        Runnable action) {
+
+                Allure.step(stepName, () -> {
+
+                        try {
+
+                                action.run();
+
+                        } finally {
+
+                                attachTestDetails(
+                                                stepName + " - Step Details",
+                                                stepDetails);
+
+                                captureAndAttachScreenshot(
+                                                stepName + " - Screenshot");
+                        }
+                });
+        }
+
+        /**
+         * Executes an assertion and records its result in AllureEvidenceLogger.
+         *
+         * Also attaches assertion values and a screenshot directly inside
+         * the corresponding Allure step.
+         *
+         * The finally block ensures evidence is attached even when
+         * the assertion fails.
+         */
+        private void assertWithEvidence(
+                        String stepName,
+                        Map<String, Object> assertionDetails,
+                        Runnable assertion) {
+
+                Allure.step(stepName + " - Evidence", () -> {
+
+                        try {
+
+                                AllureEvidenceLogger.assertStep(
+                                                stepName,
+                                                page,
+                                                assertion);
+
+                        } finally {
+
+                                attachTestDetails(
+                                                stepName + " - Assertion Values",
+                                                assertionDetails);
+
+                                captureAndAttachScreenshot(
+                                                stepName + " - Screenshot");
+                        }
+                });
         }
 
         // ========================================================================
@@ -94,12 +178,14 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         @Severity(SeverityLevel.BLOCKER)
         public void testHomePageLoadsAndLinksArePresent() {
 
-                page.navigate(BASE_URL);
-
-                WaitUtils.waitForPageLoad(page);
-
-                captureAndAttachScreenshot(
-                                "Playwright - Home Page Loaded");
+                executeStepWithEvidence(
+                                "Navigate to Home Page",
+                                details(
+                                                "Target URL", BASE_URL),
+                                () -> {
+                                        page.navigate(BASE_URL);
+                                        WaitUtils.waitForPageLoad(page);
+                                });
 
                 // Collect actual values.
                 String actualTitle = page.title();
@@ -108,51 +194,60 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
                 int linkCount = page.locator("#content ul li a").count();
 
-                // Attach expected and actual values.
-                Map<String, Object> details = new HashMap<>();
+                String currentUrl = page.url();
 
-                details.put("Expected Page Title", "The Internet");
-                details.put("Actual Page Title", actualTitle);
-
-                details.put("Expected Heading", "Welcome to the-internet");
-                details.put("Actual Heading", actualHeading);
-
-                details.put("Example Link Count", linkCount);
-                details.put("Current URL", page.url());
-
+                // Attach overall test information.
                 attachTestDetails(
-                                "Playwright - Home Page Test Details", details);
+                                "Playwright - Home Page Test Details",
+                                details(
+                                                "Expected Page Title", "The Internet",
+                                                "Actual Page Title", actualTitle,
+                                                "Expected Heading", "Welcome to the-internet",
+                                                "Actual Heading", actualHeading,
+                                                "Example Link Count", linkCount,
+                                                "Current URL", currentUrl));
 
-                // Assertions with individual Allure evidence.
-                AllureEvidenceLogger.assertStep(
-                                "Verify page title",
-                                page,
+                // Assertion 1: Page title.
+                assertWithEvidence(
+                                "Verify Page Title",
+                                details(
+                                                "Expected Title", "The Internet",
+                                                "Actual Title", actualTitle),
                                 () -> UiAssertionUtils.assertPageTitle(
                                                 page, "The Internet"));
 
                 Locator heading = page.locator("h1");
 
-                AllureEvidenceLogger.assertStep(
-                                "Verify heading is visible",
-                                page,
+                // Assertion 2: Heading visibility.
+                assertWithEvidence(
+                                "Verify Heading Visibility",
+                                details(
+                                                "Expected Visible", true,
+                                                "Actual Visible", heading.isVisible()),
                                 () -> UiAssertionUtils.assertElementVisible(heading));
 
-                AllureEvidenceLogger.assertStep(
-                                "Verify heading contains expected text",
-                                page,
+                // Assertion 3: Heading text.
+                assertWithEvidence(
+                                "Verify Heading Text",
+                                details(
+                                                "Expected Text", "Welcome to the-internet",
+                                                "Actual Text", actualHeading),
                                 () -> UiAssertionUtils.assertElementContainsText(
                                                 heading, "Welcome to the-internet"));
 
-                AllureEvidenceLogger.assertStep(
-                                "Verify example links are present",
-                                page,
+                // Assertion 4: Example links.
+                assertWithEvidence(
+                                "Verify Example Links",
+                                details(
+                                                "Expected Minimum Link Count", 1,
+                                                "Actual Link Count", linkCount),
                                 () -> Assert.assertTrue(
                                                 linkCount > 0,
                                                 "Expected the example-links list to contain at least one link"));
 
                 AllureLogger.logText(
-                                "Playwright - Home Page Assertions",
-                                "PASS: Page title, heading visibility, heading text and example links verified.");
+                                "Playwright - Home Page Result",
+                                "All home page assertions completed successfully.");
         }
 
         // ========================================================================
@@ -167,29 +262,40 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
                 ElementActions actions = new ElementActions(page);
 
-                page.navigate(BASE_URL + "/login");
-
-                WaitUtils.waitForPageLoad(page);
-
-                captureAndAttachScreenshot(
-                                "Playwright - Login Page");
+                executeStepWithEvidence(
+                                "Navigate to Login Page",
+                                details(
+                                                "Target URL", BASE_URL + "/login"),
+                                () -> {
+                                        page.navigate(BASE_URL + "/login");
+                                        WaitUtils.waitForPageLoad(page);
+                                });
 
                 // Enter login credentials.
-                actions.type(page.locator("#username"), "tomsmith");
+                executeStepWithEvidence(
+                                "Enter Login Credentials",
+                                details(
+                                                "Username", "tomsmith",
+                                                "Password", "[REDACTED]",
+                                                "Input Method", "ElementActions.type()"),
+                                () -> {
+                                        actions.type(
+                                                        page.locator("#username"), "tomsmith");
 
-                actions.type(
-                                page.locator("#password"),
-                                "SuperSecretPassword!");
-
-                // Never attach or log the actual password.
-                AllureLogger.logText(
-                                "Playwright - Login Input",
-                                "Username entered: tomsmith\nPassword entered: [REDACTED]");
+                                        actions.type(
+                                                        page.locator("#password"),
+                                                        "SuperSecretPassword!");
+                                });
 
                 actions.click(page.locator("button[type='submit']"));
 
-                WaitUtils.waitForElementVisible(
-                                page.locator("#flash"));
+                executeStepWithEvidence(
+                                "Wait for Login Response",
+                                details(
+                                                "Expected Element", "#flash",
+                                                "Wait Strategy", "Element visibility"),
+                                () -> WaitUtils.waitForElementVisible(
+                                                page.locator("#flash")));
 
                 Locator flash = page.locator("#flash");
 
@@ -197,39 +303,38 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
                 String actualUrl = page.url();
 
-                // Attach expected and actual values.
-                Map<String, Object> details = new HashMap<>();
-
-                details.put("Expected Login Message",
-                                "You logged into a secure area!");
-
-                details.put("Actual Login Message", actualMessage);
-
-                details.put("Expected URL Contains", "/secure");
-                details.put("Actual URL", actualUrl);
-
+                // Attach overall test information.
                 attachTestDetails(
-                                "Playwright - Login Test Details", details);
+                                "Playwright - Login Test Details",
+                                details(
+                                                "Expected Login Message",
+                                                "You logged into a secure area!",
+                                                "Actual Login Message", actualMessage,
+                                                "Expected URL Contains", "/secure",
+                                                "Actual URL", actualUrl));
 
-                captureAndAttachScreenshot(
-                                "Playwright - Login Successful");
-
-                // Assertions with individual Allure evidence.
-                AllureEvidenceLogger.assertStep(
-                                "Verify successful login confirmation message",
-                                page,
+                // Assertion 1: Login confirmation message.
+                assertWithEvidence(
+                                "Verify Login Confirmation Message",
+                                details(
+                                                "Expected Message",
+                                                "You logged into a secure area!",
+                                                "Actual Message", actualMessage),
                                 () -> UiAssertionUtils.assertElementContainsText(
                                                 flash, "You logged into a secure area!"));
 
-                AllureEvidenceLogger.assertStep(
-                                "Verify navigation to secure area",
-                                page,
+                // Assertion 2: Secure area URL.
+                assertWithEvidence(
+                                "Verify Secure Area Navigation",
+                                details(
+                                                "Expected URL Contains", "/secure",
+                                                "Actual URL", actualUrl),
                                 () -> UiAssertionUtils.assertUrlContains(
                                                 page, "/secure"));
 
                 AllureLogger.logText(
-                                "Playwright - Login Assertions",
-                                "PASS: Login confirmation message and secure-area URL verified.");
+                                "Playwright - Login Result",
+                                "Login confirmation and secure-area navigation verified.");
         }
 
         // ========================================================================
@@ -242,23 +347,34 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         @Severity(SeverityLevel.CRITICAL)
         public void testDynamicLoadingRevealsHiddenText() {
 
-                page.navigate(BASE_URL + "/dynamic_loading/1");
-
-                WaitUtils.waitForPageLoad(page);
+                executeStepWithEvidence(
+                                "Navigate to Dynamic Loading Page",
+                                details(
+                                                "Target URL", BASE_URL + "/dynamic_loading/1"),
+                                () -> {
+                                        page.navigate(BASE_URL + "/dynamic_loading/1");
+                                        WaitUtils.waitForPageLoad(page);
+                                });
 
                 Locator startButton = page.locator("#start button");
 
-                AllureEvidenceLogger.assertStep(
-                                "Verify start button is visible",
-                                page,
+                // Assertion 1: Start button visibility.
+                assertWithEvidence(
+                                "Verify Start Button Visibility",
+                                details(
+                                                "Expected Visible", true,
+                                                "Actual Visible", startButton.isVisible()),
                                 () -> UiAssertionUtils.assertElementVisible(startButton));
 
-                captureAndAttachScreenshot(
-                                "Playwright - Dynamic Loading Before Start");
+                // Trigger asynchronous loading.
+                executeStepWithEvidence(
+                                "Start Dynamic Loading",
+                                details(
+                                                "Action", "Click Start button",
+                                                "Expected Result", "Loading indicator appears"),
+                                () -> startButton.click());
 
-                // Start asynchronous loading.
-                startButton.click();
-
+                // Wait for dynamically loaded content.
                 Locator finishText = WaitUtils.waitForElementVisible(
                                 page.locator("#finish h4"), 15000);
 
@@ -266,39 +382,33 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
                 boolean isVisible = finishText.isVisible();
 
-                // Attach expected and actual values.
-                Map<String, Object> details = new HashMap<>();
-
-                details.put("Expected Text", "Hello World!");
-                details.put("Actual Text", actualText);
-                details.put("Element Visible", isVisible);
-
+                // Attach overall test information.
                 attachTestDetails(
-                                "Playwright - Dynamic Loading Test Details", details);
+                                "Playwright - Dynamic Loading Test Details",
+                                details(
+                                                "Expected Text", "Hello World!",
+                                                "Actual Text", actualText,
+                                                "Element Visible", isVisible));
 
-                captureAndAttachScreenshot(
-                                "Playwright - Dynamic Loading Completed");
-
-                // Assertion with individual Allure evidence.
-                AllureEvidenceLogger.assertStep(
-                                "Verify dynamically loaded text",
-                                page,
+                // Assertion 2: Dynamically loaded text.
+                assertWithEvidence(
+                                "Verify Dynamically Loaded Text",
+                                details(
+                                                "Expected Text", "Hello World!",
+                                                "Actual Text", actualText,
+                                                "Element Visible", isVisible),
                                 () -> UiAssertionUtils.assertElementTextEquals(
                                                 finishText, "Hello World!"));
 
                 AllureLogger.logText(
-                                "Playwright - Dynamic Loading Assertion",
-                                "PASS: The delayed text appeared and matched the expected value.");
+                                "Playwright - Dynamic Loading Result",
+                                "The delayed text appeared and matched the expected value.");
         }
 
         // ========================================================================
         // Final Test Evidence
         // ========================================================================
 
-        /**
-         * Captures final screenshot and failure details before browser teardown.
-         * Attaches the assertion summary even if screenshot collection fails.
-         */
         @AfterMethod(alwaysRun = true)
         public void attachFinalTestEvidence(ITestResult result) {
 
@@ -306,7 +416,6 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
                         if (page != null) {
 
-                                // Attach failure details when a test fails.
                                 if (result.getStatus() == ITestResult.FAILURE) {
 
                                         AllureLogger.logError(
@@ -314,7 +423,7 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
                                                         result.getThrowable());
                                 }
 
-                                // Capture final browser state.
+                                // Final screenshot attached directly to the test.
                                 captureAndAttachScreenshot(
                                                 "Playwright - Final Test State");
                         }
@@ -327,8 +436,12 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
                 } finally {
 
-                        // Attach chronological assertion evidence table.
-                        AllureEvidenceLogger.attachSummary();
+                        try {
+                                // Supplementary HTML assertion summary.
+                                AllureEvidenceLogger.attachSummary();
+                        } finally {
+                                AllureEvidenceLogger.clearThreadLocal();
+                        }
                 }
         }
 }

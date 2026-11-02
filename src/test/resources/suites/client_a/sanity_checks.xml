@@ -29,7 +29,7 @@
     <!-- Selenium UI Sanity Tests -->
     <test name="Selenium UI Sanity" enabled="true">
         <parameter name="browser" value="chrome" />
-        <parameter name="headless" value="false" />
+        <parameter name="headless" value="true" />
         <classes>
             <class name="com.dinuka.automation.client_a.ui_tests.SeleniumUISanityTest" />
         </classes>
