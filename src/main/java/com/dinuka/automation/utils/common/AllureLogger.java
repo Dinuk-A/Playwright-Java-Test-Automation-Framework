@@ -17,7 +17,7 @@ public class AllureLogger {
     private static final String URL = "URL: ";
     private static final String METHOD = "Method: ";
 
-     private AllureLogger() {
+    private AllureLogger() {
         throw new UnsupportedOperationException("Utility class");
     }
 
@@ -208,6 +208,13 @@ public class AllureLogger {
         } catch (Exception e) {
             return "Failed to extract field '" + jsonPath + "' from JSON: " + e.getMessage();
         }
+    }
+
+    //
+    @Attachment(value = "{attachmentName}", type = "image/png")
+    public static byte[] logScreenshot(String attachmentName, byte[] screenshot) {
+        logger.info("Attaching screenshot to Allure: {}", attachmentName);
+        return screenshot;
     }
 
 }

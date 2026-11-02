@@ -40,3 +40,4 @@ desktop.ini
 .env
 *.properties.local
 config/secrets.properties
+screenshots/

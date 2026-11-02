@@ -18,9 +18,8 @@
 
     <!-- Playwright UI Sanity Tests -->
     <test name="Playwright UI Sanity">
-        <!--<parameter
-        name="browser" value="chrome" />
-        <parameter name="headless" value="true" />-->
+        <parameter name="browser" value="chrome" />
+        <parameter name="headless" value="true" />
 
         <classes>
             <class name="com.dinuka.automation.client_a.ui_tests.PlaywrightUISanityTest" />
@@ -28,7 +27,7 @@
     </test>
 
     <!-- Selenium UI Sanity Tests -->
-    <test name="Selenium UI Sanity" enabled="false">
+    <test name="Selenium UI Sanity" enabled="true">
         <parameter name="browser" value="chrome" />
         <parameter name="headless" value="false" />
         <classes>
