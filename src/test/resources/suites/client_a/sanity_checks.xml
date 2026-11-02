@@ -3,16 +3,9 @@
 <suite name="Framework Sanity Suite">
 
     <!-- Playwright API Sanity Tests -->
-    <test name="Playwright API Sanity" enabled="false">
+    <test name="Playwright API Sanity" enabled="true">
         <classes>
             <class name="com.dinuka.automation.client_a.api_tests.PlaywrightAPISanityTest" />
-        </classes>
-    </test>
-
-    <!-- REST Assured API Sanity Tests -->
-    <test name="REST Assured API Sanity" enabled="false">
-        <classes>
-            <class name="com.dinuka.automation.client_a.api_tests.RestAssuredAPISanityTest" />
         </classes>
     </test>
 
@@ -23,15 +16,6 @@
 
         <classes>
             <class name="com.dinuka.automation.client_a.ui_tests.PlaywrightUISanityTest" />
-        </classes>
-    </test>
-
-    <!-- Selenium UI Sanity Tests -->
-    <test name="Selenium UI Sanity" enabled="true">
-        <parameter name="browser" value="chrome" />
-        <parameter name="headless" value="true" />
-        <classes>
-            <class name="com.dinuka.automation.client_a.ui_tests.SeleniumUISanityTest" />
         </classes>
     </test>
 
