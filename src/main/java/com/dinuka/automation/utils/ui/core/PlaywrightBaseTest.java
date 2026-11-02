@@ -1,3 +1,4 @@
+
 package com.dinuka.automation.utils.ui.core;
 
 import org.testng.annotations.AfterClass;
@@ -13,14 +14,15 @@ import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 
-import java.util.List;
-
 public class PlaywrightBaseTest {
 
-    // ThreadLocal to store Playwright per thread
+    // ThreadLocal to store Playwright instances per thread
     private static final ThreadLocal<Playwright> playwrightThreadLocal = new ThreadLocal<>();
+
     private static final ThreadLocal<Browser> browserThreadLocal = new ThreadLocal<>();
+
     private static final ThreadLocal<BrowserContext> contextThreadLocal = new ThreadLocal<>();
+
     private static final ThreadLocal<Page> pageThreadLocal = new ThreadLocal<>();
 
     protected Playwright playwright;
@@ -28,129 +30,140 @@ public class PlaywrightBaseTest {
     protected BrowserContext context;
     protected Page page;
 
+    // Initialize Playwright and browser before each test class
     @BeforeClass
     @Parameters({ "browser", "headless" })
     public void setupPlaywright(
-            @Optional("chromium") String browser,
-            @Optional("false") String headless) {
+            @Optional("") String browser,
+            @Optional("") String headless) {
+
+        // Priority: TestNG XML -> Properties -> Hardcoded fallback
+        String selectedBrowser = (browser != null && !browser.isBlank())
+                ? browser
+                : PlaywrightConfig.getBrowser();
+
+        boolean selectedHeadless = (headless != null && !headless.isBlank())
+                ? Boolean.parseBoolean(headless)
+                : PlaywrightConfig.isHeadless();
+
+        // Debug configuration
+        System.out.println("\n========== PLAYWRIGHT CONFIG ==========");
+        System.out.println("TestNG Browser Parameter: " + browser);
+        System.out.println("TestNG Headless Parameter: " + headless);
+        System.out.println("Selected Browser: " + selectedBrowser);
+        System.out.println("Selected Headless: " + selectedHeadless);
+        System.out.println("Properties Headless: " + PlaywrightConfig.isHeadless());
+        System.out.println("========================================\n");
+
         playwright = Playwright.create();
         playwrightThreadLocal.set(playwright);
 
-        boolean isHeadless = Boolean.parseBoolean(headless);
-
+        // Configure browser launch options
         BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions()
-                .setHeadless(isHeadless)
-                .setArgs(List.of(
-                        "--disable-dev-shm-usage",
-                        "--no-sandbox",
-                        "--disable-gpu",
-                        "--window-size=1920,1080"));
+                .setHeadless(selectedHeadless)
+                .setSlowMo(PlaywrightConfig.getSlowMo());
 
-        // Launch browser based on parameter
-        switch (browser.toLowerCase()) {
+        // Launch the selected browser
+        switch (selectedBrowser.toLowerCase()) {
+
             case "firefox":
                 this.browser = playwright.firefox().launch(launchOptions);
                 break;
+
             case "webkit":
                 this.browser = playwright.webkit().launch(launchOptions);
                 break;
+
+            case "chromium":
             default:
                 this.browser = playwright.chromium().launch(launchOptions);
+                break;
         }
-        Browser.NewContextOptions contextOptions = new Browser.NewContextOptions()
-                .setViewportSize(1920, 1080);
 
-        this.context = this.browser.newContext(contextOptions);
-
-        this.page = context.newPage();
-
-        // store globally if needed
         browserThreadLocal.set(this.browser);
-        contextThreadLocal.set(context);
-        pageThreadLocal.set(page);
     }
 
-    // Create context and page before each test method
+    // Create a fresh browser context and page before each test method
     @BeforeMethod
     public void createContextAndPage() {
+
         Browser currentBrowser = browserThreadLocal.get();
 
         if (currentBrowser == null) {
-            initializeBrowserForThread();
-            currentBrowser = browserThreadLocal.get();
+            throw new IllegalStateException(
+                    "Browser is not initialized for the current thread.");
         }
 
+        // Create an isolated browser context
         BrowserContext newContext = currentBrowser.newContext(
-                new Browser.NewContextOptions().setViewportSize(null));
-        Page newPage = newContext.newPage();
-        newPage.setDefaultTimeout(PlaywrightConfig.getDefaultTimeout());
+                new Browser.NewContextOptions()
+                        .setViewportSize(
+                                PlaywrightConfig.getViewportWidth(),
+                                PlaywrightConfig.getViewportHeight()));
 
+        Page newPage = newContext.newPage();
+
+        // Configure page timeouts
+        newPage.setDefaultTimeout(
+                PlaywrightConfig.getDefaultTimeout());
+
+        newPage.setDefaultNavigationTimeout(
+                PlaywrightConfig.getNavigationTimeout());
+
+        // Store context and page in ThreadLocal
         contextThreadLocal.set(newContext);
         pageThreadLocal.set(newPage);
 
-        // Also set as instance variables for backward compatibility
+        // Maintain instance variables for backward compatibility
         this.context = newContext;
         this.page = newPage;
     }
 
-    // Close context and page after each test method
-    @AfterMethod
+    // Close browser context after each test method
+    @AfterMethod(alwaysRun = true)
     public void closeContext() {
+
         BrowserContext currentContext = contextThreadLocal.get();
+
         if (currentContext != null) {
-            currentContext.close();
-            contextThreadLocal.remove();
+            try {
+                currentContext.close();
+            } finally {
+                contextThreadLocal.remove();
+            }
         }
 
-        Page currentPage = pageThreadLocal.get();
-        if (currentPage != null) {
-            pageThreadLocal.remove();
-        }
+        pageThreadLocal.remove();
+
+        this.context = null;
+        this.page = null;
     }
 
-    // Teardown Playwright and browser after all tests in the class
-    @AfterClass
+    // Close browser and Playwright after all tests in the class
+    @AfterClass(alwaysRun = true)
     public void teardownPlaywright() {
+
         Browser currentBrowser = browserThreadLocal.get();
+
         if (currentBrowser != null) {
-            currentBrowser.close();
-            browserThreadLocal.remove();
+            try {
+                currentBrowser.close();
+            } finally {
+                browserThreadLocal.remove();
+            }
         }
 
         Playwright currentPlaywright = playwrightThreadLocal.get();
+
         if (currentPlaywright != null) {
-            currentPlaywright.close();
-            playwrightThreadLocal.remove();
-        }
-    }
-
-    // Initialize browser for current thread (called lazily if needed)
-    private synchronized void initializeBrowserForThread() {
-        if (browserThreadLocal.get() != null) {
-            return;
+            try {
+                currentPlaywright.close();
+            } finally {
+                playwrightThreadLocal.remove();
+            }
         }
 
-        Playwright newPlaywright = Playwright.create();
-        playwrightThreadLocal.set(newPlaywright);
-
-        String browserType = PlaywrightConfig.getBrowser();
-        BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions()
-                .setHeadless(PlaywrightConfig.isHeadless())
-                .setArgs(List.of("--start-maximized"));
-
-        Browser newBrowser;
-        switch (browserType.toLowerCase()) {
-            case "firefox":
-                newBrowser = newPlaywright.firefox().launch(launchOptions);
-                break;
-            case "webkit":
-                newBrowser = newPlaywright.webkit().launch(launchOptions);
-                break;
-            default:
-                newBrowser = newPlaywright.chromium().launch(launchOptions);
-        }
-
-        browserThreadLocal.set(newBrowser);
-        this.browser = newBrowser;
+        this.browser = null;
+        this.playwright = null;
     }
 }

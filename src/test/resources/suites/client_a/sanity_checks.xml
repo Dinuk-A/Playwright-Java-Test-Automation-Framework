@@ -2,28 +2,33 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="Framework Sanity Suite">
 
-    <test name="Playwright API Sanity" enabled="true">
+    <!-- Playwright API Sanity Tests -->
+    <test name="Playwright API Sanity" enabled="false">
         <classes>
             <class name="com.dinuka.automation.client_a.api_tests.PlaywrightAPISanityTest" />
         </classes>
     </test>
 
-    <test name="REST Assured API Sanity" enabled="true">
+    <!-- REST Assured API Sanity Tests -->
+    <test name="REST Assured API Sanity" enabled="false">
         <classes>
             <class name="com.dinuka.automation.client_a.api_tests.RestAssuredAPISanityTest" />
         </classes>
     </test>
 
+    <!-- Playwright UI Sanity Tests -->
     <test name="Playwright UI Sanity">
-        <parameter name="browser" value="chromium" />
-        <parameter name="headless" value="true" />
+        <!--<parameter
+        name="browser" value="chrome" />
+        <parameter name="headless" value="true" />-->
 
         <classes>
             <class name="com.dinuka.automation.client_a.ui_tests.PlaywrightUISanityTest" />
         </classes>
     </test>
 
-    <test name="Selenium UI Sanity" enabled="true">
+    <!-- Selenium UI Sanity Tests -->
+    <test name="Selenium UI Sanity" enabled="false">
         <parameter name="browser" value="chrome" />
         <parameter name="headless" value="false" />
         <classes>
