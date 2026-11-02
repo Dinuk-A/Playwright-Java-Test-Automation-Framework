@@ -47,25 +47,11 @@
       <version>${allure.version}</version>
     </dependency>
 
-    <!-- Allure Rest Assured -->
-    <dependency>
-      <groupId>io.qameta.allure</groupId>
-      <artifactId>allure-rest-assured</artifactId>
-      <version>${allure.version}</version>
-    </dependency>
-
     <!-- Azure Cosmos DB -->
     <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-cosmos</artifactId>
       <version>4.67.0</version>
-    </dependency>
-
-    <!-- Selenium -->
-    <dependency>
-      <groupId>org.seleniumhq.selenium</groupId>
-      <artifactId>selenium-java</artifactId>
-      <version>4.28.1</version>
     </dependency>
 
     <!-- Apache Commons IO -->
