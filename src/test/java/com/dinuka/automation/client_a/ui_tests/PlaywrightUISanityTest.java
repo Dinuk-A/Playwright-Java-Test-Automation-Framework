@@ -1,8 +1,7 @@
 package com.dinuka.automation.client_a.ui_tests;
 
-import static com.dinuka.automation.client_a.utils.ui_utils.PlaywrightSanityUtils.details;
-
 import com.dinuka.automation.client_a.utils.ui_utils.PlaywrightSanityUtils;
+import com.dinuka.automation.client_a.utils.ui_utils.PlaywrightSanityUtils.DialogResult;
 import com.dinuka.automation.utils.common.ConfigPropertyReader;
 import com.dinuka.automation.utils.ui.core.PlaywrightBaseTest;
 import com.dinuka.automation.utils.ui.playwright.AllureEvidenceLogger;
@@ -10,16 +9,13 @@ import com.dinuka.automation.utils.ui.playwright.UiAssertionUtils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Response;
 
-import io.qameta.allure.Allure;
 import io.qameta.allure.Description;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Issue;
-import io.qameta.allure.Owner;
 import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import io.qameta.allure.Story;
-import io.qameta.allure.TmsLink;
 
 import org.testng.Assert;
 import org.testng.ITestResult;
@@ -32,7 +28,6 @@ import java.util.List;
 
 @Epic("Framework Sanity Checks")
 @Feature("Playwright UI Sanity")
-@Owner("Dinuka")
 public class PlaywrightUISanityTest extends PlaywrightBaseTest {
 
         private static final String BASE_URL = ConfigPropertyReader.getProperty("sanity.ui.base.url");
@@ -48,8 +43,6 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
                 AllureEvidenceLogger.resetLog();
                 utils = new PlaywrightSanityUtils(page);
                 utils.startDiagnostics();
-                Allure.label("layer", "ui");
-                Allure.link("Application under test", BASE_URL);
         }
 
         @AfterMethod(alwaysRun = true)
@@ -88,8 +81,7 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
                 return new Object[][] { { "1", "Option 1" }, { "2", "Option 2" } };
         }
 
-        // { label, triggerSelector, accept, promptText, expectedType, expectedMessage,
-        // expectedResult }
+        // { label, triggerSelector, accept, promptText, expectedType, expectedMessage, expectedResult }
         @DataProvider(name = "dialogScenarios")
         public Object[][] dialogScenarios() {
                 return new Object[][] {
@@ -110,317 +102,245 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         }
 
         // ====================================================================
-        // TC-SAN-001: Home page
+        // Home page
         // ====================================================================
 
         @Test(groups = { "sanity" })
         @Story("Navigation & Assertions")
         @Description("Verify Playwright can launch a browser, navigate, and read page content")
         @Severity(SeverityLevel.BLOCKER)
-        @TmsLink("TC-SAN-001")
         public void testHomePageLoadsAndLinksArePresent() {
-                utils.step("Navigate to Home Page", () -> details("Target URL", BASE_URL),
-                                () -> utils.navigate(BASE_URL));
+                utils.startTest("Home page loads and links are present");
+
+                utils.navigateTo(BASE_URL);
 
                 Locator heading = page.locator("h1");
                 Locator links = page.locator("#content ul li a");
 
-                utils.verify("Page title is 'The Internet'",
-                                () -> details("Expected", "The Internet", "Actual", page.title()),
+                utils.verify("Page title", "The Internet", page::title,
                                 () -> UiAssertionUtils.assertPageTitle(page, "The Internet"));
 
-                utils.verify("Heading is visible",
-                                () -> details("Expected visible", true, "Actual visible", heading.isVisible()),
+                utils.verify("Heading is visible", true, heading::isVisible,
                                 () -> UiAssertionUtils.assertElementVisible(heading));
 
-                utils.verify("Heading text",
-                                () -> details("Expected contains", "Welcome to the-internet",
-                                                "Actual", heading.innerText()),
+                utils.verify("Heading text", "contains 'Welcome to the-internet'", heading::innerText,
                                 () -> UiAssertionUtils.assertElementContainsText(heading,
                                                 "Welcome to the-internet"));
 
-                // Vacuous-truth guard: the loop below must have items to iterate.
-                utils.verify("Example link list is not empty (guard)",
-                                () -> details("Expected count", "> 0", "Actual count", links.count()),
+                // Vacuous-truth guard
+                utils.verify("Example link list is not empty", "more than 0 links", links::count,
                                 () -> Assert.assertTrue(links.count() > 0,
                                                 "NOT EXERCISED: example link list is empty"));
 
-                List<String> hrefs = links.evaluateAll("els => els.map(e => e.getAttribute('href'))") instanceof List<?>
-                                ? castList(links.evaluateAll("els => els.map(e => e.getAttribute('href'))"))
-                                : List.of();
-                utils.attachText("Example link hrefs", String.join("\n", hrefs));
-
-                utils.verify("Checkboxes link points to /checkboxes",
-                                () -> details("Expected href", "/checkboxes"),
-                                () -> UiAssertionUtils.assertAttributeEquals(
-                                                page.locator("#content a[href='/checkboxes']"), "href",
+                Locator checkboxesLink = page.locator("#content a[href='/checkboxes']");
+                utils.verify("Checkboxes link target", "/checkboxes", () -> checkboxesLink.getAttribute("href"),
+                                () -> UiAssertionUtils.assertAttributeEquals(checkboxesLink, "href",
                                                 "/checkboxes"));
         }
 
-        @SuppressWarnings("unchecked")
-        private static List<String> castList(Object value) {
-                return (List<String>) value;
-        }
-
         // ====================================================================
-        // TC-SAN-002: Form authentication (data driven)
+        // Form authentication (data driven)
         // ====================================================================
 
         @Test(groups = { "sanity" }, dataProvider = "loginScenarios")
         @Story("Form Input & Click")
         @Description("Verify ElementActions can type, click, and the resulting page state is correct for valid and invalid logins")
         @Severity(SeverityLevel.BLOCKER)
-        @TmsLink("TC-SAN-002")
         public void testFormAuthentication(String label, String username, String password,
                         String expectedMessage, String expectedUrlPart) {
-                utils.labelTest("Form authentication - " + label);
-                Allure.parameter("scenario", label);
-                Allure.parameter("username", username);
-                Allure.parameter("password", "[REDACTED]");
+                utils.startTest("Form authentication - " + label);
 
-                utils.step("Navigate to Login Page", () -> details("Target URL", BASE_URL + "/login"),
-                                () -> utils.navigate(BASE_URL + "/login"));
-
-                utils.step("Enter credentials",
-                                () -> details("Username", username, "Password", "[REDACTED]",
-                                                "Input method", "ElementActions.type()"),
-                                () -> utils.enterCredentials(username, password));
-
-                utils.step("Submit login form",
-                                () -> details("Action", "Click submit", "Wait for", "#flash visible"),
-                                () -> utils.submitLogin());
+                utils.navigateTo(BASE_URL + "/login");
+                utils.type("username field", page.locator("#username"), username, false);
+                utils.type("password field", page.locator("#password"), password, true);
+                utils.click("Login button", page.locator("button[type='submit']"));
 
                 Locator flash = page.locator("#flash");
+                utils.waitUntilVisible("flash message", flash);
 
-                utils.verify("Flash message: " + expectedMessage,
-                                () -> details("Expected contains", expectedMessage, "Actual", flash.innerText()),
+                utils.verify("Flash message", "contains '" + expectedMessage + "'", flash::innerText,
                                 () -> UiAssertionUtils.assertElementContainsText(flash, expectedMessage));
 
-                utils.verify("URL contains " + expectedUrlPart,
-                                () -> details("Expected contains", expectedUrlPart, "Actual", page.url()),
+                utils.verify("URL after login attempt", "contains '" + expectedUrlPart + "'", page::url,
                                 () -> UiAssertionUtils.assertUrlContains(page, expectedUrlPart));
         }
 
         // ====================================================================
-        // TC-SAN-003: Dynamic loading (data driven)
+        // Dynamic loading (data driven)
         // ====================================================================
 
         @Test(groups = { "sanity" }, dataProvider = "dynamicLoadingExamples")
         @Story("Dynamic Waits")
         @Description("Verify WaitUtils waits for an element that only appears after an async delay")
         @Severity(SeverityLevel.CRITICAL)
-        @TmsLink("TC-SAN-003")
         public void testDynamicLoadingRevealsHiddenText(String label, String path) {
-                utils.labelTest("Dynamic loading - " + label);
-                Allure.parameter("example", label);
+                utils.startTest("Dynamic loading - " + label);
 
-                utils.step("Navigate to " + path, () -> details("Target URL", BASE_URL + path),
-                                () -> utils.navigate(BASE_URL + path));
+                utils.navigateTo(BASE_URL + path);
 
                 Locator finishText = page.locator("#finish h4");
 
-                utils.verify("Finish text is not visible before Start",
-                                () -> details("Expected visible", false, "Actual visible", finishText.isVisible()),
+                utils.verify("Finish text before clicking Start", "not visible", finishText::isVisible,
                                 () -> Assert.assertFalse(finishText.isVisible(),
                                                 "Finish text should not be visible before Start is clicked"));
 
-                long elapsed = utils.stepReturning("Click Start and wait for async content",
-                                () -> details("Action", "Click Start", "Wait", "#finish h4 visible (15s max)"),
-                                utils::startDynamicLoadAndWait);
-                Allure.parameter("dynamic load duration (ms)", elapsed);
+                utils.clickStartAndWaitForContent();
 
-                utils.verify("Dynamically loaded text",
-                                () -> details("Expected", "Hello World!", "Actual", finishText.innerText(),
-                                                "Load duration (ms)", elapsed),
+                utils.verify("Dynamically loaded text", "Hello World!", finishText::innerText,
                                 () -> UiAssertionUtils.assertElementTextEquals(finishText, "Hello World!"));
         }
 
         // ====================================================================
-        // TC-SAN-004: Checkboxes
+        // Checkboxes
         // ====================================================================
 
         @Test(groups = { "sanity" })
         @Story("Checkbox State")
         @Description("Verify every checkbox flips state when clicked; before/after matrix attached as CSV")
         @Severity(SeverityLevel.NORMAL)
-        @TmsLink("TC-SAN-004")
         public void testCheckboxesToggle() {
-                utils.step("Navigate to Checkboxes page", () -> details("Target URL", BASE_URL + "/checkboxes"),
-                                () -> utils.navigate(BASE_URL + "/checkboxes"));
+                utils.startTest("Checkboxes toggle");
+
+                utils.navigateTo(BASE_URL + "/checkboxes");
 
                 Locator boxes = page.locator("#checkboxes input[type='checkbox']");
 
-                utils.verify("Checkboxes are present (guard)",
-                                () -> details("Expected count", "> 0", "Actual count", boxes.count()),
+                utils.verify("Number of checkboxes", 2, boxes::count,
                                 () -> UiAssertionUtils.assertElementCount(boxes, 2));
 
-                List<boolean[]> rows = utils.stepReturning("Toggle every checkbox",
-                                () -> details("Checkbox count", boxes.count()),
-                                () -> utils.toggleAllCheckboxes(boxes));
-
+                List<boolean[]> rows = utils.toggleAllCheckboxes(boxes);
                 utils.attachCsv("Checkbox state matrix", utils.toCsv(rows));
 
-                utils.verify("Every checkbox flipped state",
-                                () -> details("Rows (before->after)", utils.toCsv(rows)),
+                utils.verify("Every checkbox changed state", "all checkboxes flipped",
+                                () -> utils.toCsv(rows).replace("\n", " | "),
                                 () -> {
                                         Assert.assertFalse(rows.isEmpty(), "NOT EXERCISED: no checkbox was toggled");
                                         for (int i = 0; i < rows.size(); i++) {
                                                 Assert.assertNotEquals(rows.get(i)[1], rows.get(i)[0],
-                                                                "Checkbox " + i + " did not change state");
+                                                                "Checkbox " + (i + 1) + " did not change state");
                                         }
                                 });
         }
 
         // ====================================================================
-        // TC-SAN-005: Dropdown (data driven)
+        // Dropdown (data driven)
         // ====================================================================
 
         @Test(groups = { "sanity" }, dataProvider = "dropdownOptions")
         @Story("Dropdown Selection")
         @Description("Verify ElementActions.selectByValue selects the expected option")
         @Severity(SeverityLevel.NORMAL)
-        @TmsLink("TC-SAN-005")
         public void testDropdownSelection(String value, String expectedText) {
-                utils.labelTest("Dropdown selection - value " + value);
-                Allure.parameter("option value", value);
+                utils.startTest("Dropdown selection - " + expectedText);
 
-                utils.step("Navigate to Dropdown page", () -> details("Target URL", BASE_URL + "/dropdown"),
-                                () -> utils.navigate(BASE_URL + "/dropdown"));
-
-                utils.step("Select option by value", () -> details("Value", value),
-                                () -> utils.selectDropdownValue(value));
+                utils.navigateTo(BASE_URL + "/dropdown");
 
                 Locator dropdown = page.locator("#dropdown");
+                Locator selected = page.locator("#dropdown option:checked");
 
-                utils.verify("Dropdown value is " + value,
-                                () -> details("Expected", value, "Actual", dropdown.inputValue()),
+                utils.selectByValue("dropdown", dropdown, value);
+
+                utils.verify("Dropdown value", value, dropdown::inputValue,
                                 () -> Assert.assertEquals(dropdown.inputValue(), value));
 
-                utils.verify("Selected option text is '" + expectedText + "'",
-                                () -> details("Expected", expectedText, "Actual",
-                                                page.locator("#dropdown option:checked").textContent().trim()),
-                                () -> UiAssertionUtils.assertElementTextEquals(
-                                                page.locator("#dropdown option:checked"), expectedText));
+                utils.verify("Selected option text", expectedText, selected::textContent,
+                                () -> UiAssertionUtils.assertElementTextEquals(selected, expectedText));
         }
 
         // ====================================================================
-        // TC-SAN-006: Add / Remove elements
+        // Add / Remove elements
         // ====================================================================
 
         @Test(groups = { "sanity" })
         @Story("Dynamic DOM")
         @Description("Verify adding and removing elements updates the DOM element count")
         @Severity(SeverityLevel.NORMAL)
-        @TmsLink("TC-SAN-006")
         public void testAddAndRemoveElements() {
-                utils.step("Navigate to Add/Remove Elements page",
-                                () -> details("Target URL", BASE_URL + "/add_remove_elements/"),
-                                () -> utils.navigate(BASE_URL + "/add_remove_elements/"));
+                utils.startTest("Add and remove elements");
+
+                utils.navigateTo(BASE_URL + "/add_remove_elements/");
 
                 Locator added = page.locator("#elements button.added-manually");
 
-                utils.step("Add 3 elements", () -> details("Clicks", 3),
-                                () -> utils.clickRepeatedly(page.locator("button[onclick='addElement()']"), 3));
+                utils.clickTimes("Add Element button", page.locator("button[onclick='addElement()']"), 3);
 
-                utils.verify("3 elements added",
-                                () -> details("Expected", 3, "Actual", added.count()),
+                utils.verify("Elements after adding 3", 3, added::count,
                                 () -> UiAssertionUtils.assertElementCount(added, 3));
 
-                utils.step("Remove one element", () -> details("Action", "Click first Delete"),
-                                () -> utils.clickFirst(added));
+                utils.click("first Delete button", added.first());
 
-                utils.verify("2 elements remain",
-                                () -> details("Expected", 2, "Actual", added.count()),
+                utils.verify("Elements after deleting 1", 2, added::count,
                                 () -> UiAssertionUtils.assertElementCount(added, 2));
         }
 
         // ====================================================================
-        // TC-SAN-007: JavaScript dialogs (data driven)
+        // JavaScript dialogs (data driven)
         // ====================================================================
 
         @Test(groups = { "sanity" }, dataProvider = "dialogScenarios")
         @Story("Dialog Handling")
         @Description("Verify alert / confirm / prompt dialogs are captured, answered, and reflected in the page result")
         @Severity(SeverityLevel.NORMAL)
-        @TmsLink("TC-SAN-007")
         public void testJavaScriptDialogs(String label, String triggerSelector, boolean accept,
                         String promptText, String expectedType, String expectedMessage, String expectedResult) {
-                utils.labelTest("JS dialog - " + label);
-                Allure.parameter("dialog", label);
+                utils.startTest("JS dialog - " + label);
 
-                utils.step("Navigate to JavaScript Alerts page",
-                                () -> details("Target URL", BASE_URL + "/javascript_alerts"),
-                                () -> utils.navigate(BASE_URL + "/javascript_alerts"));
+                utils.navigateTo(BASE_URL + "/javascript_alerts");
 
-                java.util.Map<String, Object> dialog = utils.stepReturning("Trigger and answer dialog",
-                                () -> details("Trigger", triggerSelector, "Accept", accept,
-                                                "Prompt text", promptText),
-                                () -> utils.triggerDialog(triggerSelector, accept, promptText));
+                DialogResult dialog = utils.triggerDialog(label, triggerSelector, accept, promptText);
 
-                utils.verify("Dialog type is " + expectedType,
-                                () -> details("Expected", expectedType, "Actual", dialog.get("type")),
-                                () -> Assert.assertEquals(dialog.get("type"), expectedType));
+                utils.verify("Dialog type", expectedType, () -> dialog.type,
+                                () -> Assert.assertEquals(dialog.type, expectedType));
 
-                utils.verify("Dialog message",
-                                () -> details("Expected", expectedMessage, "Actual", dialog.get("message")),
-                                () -> Assert.assertEquals(dialog.get("message"), expectedMessage));
+                utils.verify("Dialog message", expectedMessage, () -> dialog.message,
+                                () -> Assert.assertEquals(dialog.message, expectedMessage));
 
                 Locator result = page.locator("#result");
-                utils.verify("Page result text",
-                                () -> details("Expected", expectedResult, "Actual", result.innerText()),
+                utils.verify("Result text on the page", expectedResult, result::innerText,
                                 () -> UiAssertionUtils.assertElementTextEquals(result, expectedResult));
         }
 
         // ====================================================================
-        // TC-SAN-008: HTTP status codes (data driven)
+        // HTTP status codes (data driven)
         // ====================================================================
 
         @Test(groups = { "sanity" }, dataProvider = "statusCodes")
         @Story("Network Response")
         @Description("Verify the navigation response carries the expected status; response headers attached as JSON")
         @Severity(SeverityLevel.MINOR)
-        @TmsLink("TC-SAN-008")
         public void testStatusCodePages(int code) {
-                utils.labelTest("Status code page - " + code);
-                Allure.parameter("status code", code);
+                utils.startTest("Status code page - " + code);
 
-                Response response = utils.stepReturning("Navigate to /status_codes/" + code,
-                                () -> details("Target URL", BASE_URL + "/status_codes/" + code),
-                                () -> utils.navigate(BASE_URL + "/status_codes/" + code));
+                Response response = utils.navigateTo(BASE_URL + "/status_codes/" + code);
 
                 Assert.assertNotNull(response, "Navigation returned no response object");
-                utils.attachJson("Response headers (" + code + ")", response.headers());
+                utils.attachJson("Response headers", response.headers());
 
-                utils.verify("Response status is " + code,
-                                () -> details("Expected", code, "Actual", response.status(),
-                                                "URL", response.url()),
+                utils.verify("HTTP status of the page", code, response::status,
                                 () -> Assert.assertEquals(response.status(), code));
 
-                utils.verify("Page body mentions the status code",
-                                () -> details("Expected contains", String.valueOf(code)),
-                                () -> UiAssertionUtils.assertElementContainsText(page.locator("#content"),
-                                                String.valueOf(code)));
+                Locator content = page.locator("#content");
+                utils.verify("Page body mentions the status code", "contains '" + code + "'", content::innerText,
+                                () -> UiAssertionUtils.assertElementContainsText(content, String.valueOf(code)));
         }
 
         // ====================================================================
-        // DEMO: deliberate failure - shows failed step, error details, page
-        // HTML and failure screenshot in Allure. Excluded from the default suite.
+        // DEMO: deliberate failure (excluded from the default suite)
         // ====================================================================
 
         @Test(groups = { "demoFailure" })
         @Story("Failure Reporting Demo")
-        @Description("Deliberately fails to showcase how failures render (error attachment, page HTML, screenshot)")
+        @Description("Deliberately fails to showcase how failures render (error details, page HTML, screenshots)")
         @Severity(SeverityLevel.TRIVIAL)
         @Issue("DEMO-123")
         public void testDeliberateFailureForReportDemo() {
-                utils.step("Navigate to Home Page", () -> details("Target URL", BASE_URL),
-                                () -> utils.navigate(BASE_URL));
+                utils.startTest("Deliberate failure (report demo)");
+
+                utils.navigateTo(BASE_URL);
 
                 Locator heading = page.locator("h1");
-                utils.verify("Heading equals an intentionally wrong value",
-                                () -> details("Expected", "Wrong heading on purpose",
-                                                "Actual", heading.innerText()),
-                                () -> UiAssertionUtils.assertElementTextEquals(heading,
-                                                "Wrong heading on purpose"));
+                utils.verify("Heading equals an intentionally wrong value", "Wrong heading on purpose",
+                                heading::innerText,
+                                () -> UiAssertionUtils.assertElementTextEquals(heading, "Wrong heading on purpose"));
         }
 }
