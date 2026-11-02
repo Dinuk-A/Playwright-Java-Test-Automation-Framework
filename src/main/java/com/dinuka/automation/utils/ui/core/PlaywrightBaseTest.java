@@ -46,15 +46,6 @@ public class PlaywrightBaseTest {
                 ? Boolean.parseBoolean(headless)
                 : PlaywrightConfig.isHeadless();
 
-        // Debug configuration
-        System.out.println("\n========== PLAYWRIGHT CONFIG ==========");
-        System.out.println("TestNG Browser Parameter: " + browser);
-        System.out.println("TestNG Headless Parameter: " + headless);
-        System.out.println("Selected Browser: " + selectedBrowser);
-        System.out.println("Selected Headless: " + selectedHeadless);
-        System.out.println("Properties Headless: " + PlaywrightConfig.isHeadless());
-        System.out.println("========================================\n");
-
         playwright = Playwright.create();
         playwrightThreadLocal.set(playwright);
 
