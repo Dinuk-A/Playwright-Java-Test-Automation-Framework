@@ -10,7 +10,7 @@
     </test>
 
     <!-- Playwright UI Sanity Tests -->
-    <test name="Playwright UI Sanity">
+    <test name="Playwright UI Sanity" enabled="true">
         <parameter name="browser" value="chrome" />
         <parameter name="headless" value="true" />
 
@@ -21,5 +21,4 @@
 
 </suite>
 
-<!-- Remove-Item -Recurse -Force .\allure-results; mvn test
-"-DsuiteXmlFile=src/test/resources/suites/client_a/sanity_checks.xml" -->
+<!-- Remove-Item -Recurse -Force .\allure-results; mvn test "-DsuiteXmlFile=src/test/resources/suites/client_a/sanity_checks.xml" -->

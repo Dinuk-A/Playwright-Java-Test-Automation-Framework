@@ -26,8 +26,7 @@ public class AllureLogger {
     public static String logRequest(String attachmentName, String url, String method,
             Map<String, String> headers, String body) {
 
-        logger.info("logRequest Logging to Allure");
-        StringBuilder requestDetails = new StringBuilder();
+               StringBuilder requestDetails = new StringBuilder();
         requestDetails.append(API_REQUEST_HEADER);
         requestDetails.append(URL).append(url).append("\n");
         requestDetails.append(METHOD).append(method).append("\n");
@@ -49,7 +48,7 @@ public class AllureLogger {
     @Attachment(value = "{attachmentName}", type = "text/plain")
     public static String logRequestWithParams(String attachmentName, String url, String method,
             Map<String, String> headers, Map<String, String> queryParams) {
-        logger.info(" logRequestWithParams Logging to Allure");
+        
         StringBuilder requestDetails = new StringBuilder();
         requestDetails.append(API_REQUEST_HEADER);
         requestDetails.append(URL).append(url).append("\n");
@@ -73,7 +72,7 @@ public class AllureLogger {
     // Attaches a formatted response log to Allure reports
     @Attachment(value = "{attachmentName}", type = "text/plain")
     public static String logResponse(String attachmentName, Response response) {
-        logger.info("logResponse Logging to Allure");
+       
         StringBuilder responseDetails = new StringBuilder();
         responseDetails.append("=== API RESPONSE ===\n");
         responseDetails.append("Status Code: ").append(response.getStatusCode()).append("\n");
@@ -98,8 +97,7 @@ public class AllureLogger {
     public static String logRequestAndResponse(String attachmentName, String url, String method,
             Map<String, String> headers, String requestBody,
             Response response) {
-        logger.info("logRequestAndResponse Logging to Allure");
-        StringBuilder details = new StringBuilder();
+                StringBuilder details = new StringBuilder();
 
         // Request section
         details.append(API_REQUEST_HEADER);
@@ -135,7 +133,7 @@ public class AllureLogger {
     // Attaches a formatted JSON response log to Allure reports
     @Attachment(value = "{attachmentName}", type = "application/json")
     public static String logJsonResponse(String attachmentName, Response response) {
-        logger.info("logJsonResponse Logging to Allure");
+       
         String responseBody = response.getBody().asString();
         return formatJson(responseBody);
     }
@@ -143,13 +141,13 @@ public class AllureLogger {
     // Attaches a plain text log to Allure reports
     @Attachment(value = "{attachmentName}", type = "text/plain")
     public static String logText(String attachmentName, String content) {
-        logger.info("Logging to Allure");
+         
         return content;
     }
 
     // Formats a JSON string for better readability
     private static String formatJson(String json) {
-        logger.info("Logging to Allure");
+         
         try {
             Object jsonObject = objectMapper.readValue(json, Object.class);
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonObject);
@@ -162,8 +160,7 @@ public class AllureLogger {
     // Attaches error details to Allure reports
     @Attachment(value = "{attachmentName}", type = "text/plain")
     public static String logError(String attachmentName, Throwable error) {
-        logger.info(" logError Logging to Allure");
-        StringBuilder errorDetails = new StringBuilder();
+               StringBuilder errorDetails = new StringBuilder();
         errorDetails.append("=== ERROR DETAILS ===\n");
         errorDetails.append("Error Type: ").append(error.getClass().getSimpleName()).append("\n");
         errorDetails.append("Error Message: ").append(error.getMessage()).append("\n");

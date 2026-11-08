@@ -9,6 +9,7 @@ import com.dinuka.automation.utils.ui.playwright.UiAssertionUtils;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Response;
 
+import io.qameta.allure.Allure;
 import io.qameta.allure.Description;
 import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
@@ -24,6 +25,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 @Epic("Framework Sanity Checks")
@@ -33,6 +35,21 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         private static final String BASE_URL = ConfigPropertyReader.getProperty("sanity.ui.base.url");
 
         private PlaywrightSanityUtils utils;
+
+        // ====================================================================
+        // Small helpers for Allure (kept private so tests stay readable)
+        // ====================================================================
+
+        /** Attach plain text (test data, notes, extracted values) to the current step. */
+        private void attachText(String name, String content) {
+                Allure.addAttachment(name, "text/plain", content);
+        }
+
+        /** Take a screenshot of the current page and attach it as a PNG. */
+        private void attachScreenshot(String name) {
+                byte[] png = page.screenshot();
+                Allure.addAttachment(name, "image/png", new ByteArrayInputStream(png), "png");
+        }
 
         // ====================================================================
         // Lifecycle
@@ -112,30 +129,42 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testHomePageLoadsAndLinksArePresent() {
                 utils.startTest("Home page loads and links are present");
 
-                utils.navigateTo(BASE_URL);
+                Allure.step("Open the home page", () -> {
+                        utils.navigateTo(BASE_URL);
+                        attachText("Opened URL", BASE_URL);
+                        attachScreenshot("Home page after load");
+                });
 
                 Locator heading = page.locator("h1");
                 Locator links = page.locator("#content ul li a");
 
-                utils.verify("Page title", "The Internet", page::title,
-                                () -> UiAssertionUtils.assertPageTitle(page, "The Internet"));
+                Allure.step("Verify page title and heading", () -> {
+                        utils.verify("Page title", "The Internet", page::title,
+                                        () -> UiAssertionUtils.assertPageTitle(page, "The Internet"));
 
-                utils.verify("Heading is visible", true, heading::isVisible,
-                                () -> UiAssertionUtils.assertElementVisible(heading));
+                        utils.verify("Heading is visible", true, heading::isVisible,
+                                        () -> UiAssertionUtils.assertElementVisible(heading));
 
-                utils.verify("Heading text", "contains 'Welcome to the-internet'", heading::innerText,
-                                () -> UiAssertionUtils.assertElementContainsText(heading,
-                                                "Welcome to the-internet"));
+                        utils.verify("Heading text", "contains 'Welcome to the-internet'", heading::innerText,
+                                        () -> UiAssertionUtils.assertElementContainsText(heading,
+                                                        "Welcome to the-internet"));
+                });
 
-                // Vacuous-truth guard
-                utils.verify("Example link list is not empty", "more than 0 links", links::count,
-                                () -> Assert.assertTrue(links.count() > 0,
-                                                "NOT EXERCISED: example link list is empty"));
+                Allure.step("Verify the example link list", () -> {
+                        // Record what we actually found so the report shows the real data
+                        attachText("Example links found", String.valueOf(links.count()));
 
-                Locator checkboxesLink = page.locator("#content a[href='/checkboxes']");
-                utils.verify("Checkboxes link target", "/checkboxes", () -> checkboxesLink.getAttribute("href"),
-                                () -> UiAssertionUtils.assertAttributeEquals(checkboxesLink, "href",
-                                                "/checkboxes"));
+                        // Vacuous-truth guard
+                        utils.verify("Example link list is not empty", "more than 0 links", links::count,
+                                        () -> Assert.assertTrue(links.count() > 0,
+                                                        "NOT EXERCISED: example link list is empty"));
+
+                        Locator checkboxesLink = page.locator("#content a[href='/checkboxes']");
+                        utils.verify("Checkboxes link target", "/checkboxes",
+                                        () -> checkboxesLink.getAttribute("href"),
+                                        () -> UiAssertionUtils.assertAttributeEquals(checkboxesLink, "href",
+                                                        "/checkboxes"));
+                });
         }
 
         // ====================================================================
@@ -150,19 +179,46 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
                         String expectedMessage, String expectedUrlPart) {
                 utils.startTest("Form authentication - " + label);
 
-                utils.navigateTo(BASE_URL + "/login");
-                utils.type("username field", page.locator("#username"), username, false);
-                utils.type("password field", page.locator("#password"), password, true);
-                utils.click("Login button", page.locator("button[type='submit']"));
+                // Test data table. The password is masked on purpose - never put secrets in reports.
+                Allure.parameter("Scenario", label);
+                Allure.parameter("Username", username);
+                attachText("Test data",
+                                "Scenario: " + label + "\n"
+                                                + "Username: " + username + "\n"
+                                                + "Password: ******\n"
+                                                + "Expected flash: " + expectedMessage + "\n"
+                                                + "Expected URL part: " + expectedUrlPart);
+
+                Allure.step("Open the login page", () -> {
+                        utils.navigateTo(BASE_URL + "/login");
+                        attachScreenshot("Login page (empty form)");
+                });
+
+                Allure.step("Fill in credentials", () -> {
+                        utils.type("username field", page.locator("#username"), username, false);
+                        utils.type("password field", page.locator("#password"), password, true);
+                        attachScreenshot("Login form filled");
+                });
 
                 Locator flash = page.locator("#flash");
-                utils.waitUntilVisible("flash message", flash);
 
-                utils.verify("Flash message", "contains '" + expectedMessage + "'", flash::innerText,
-                                () -> UiAssertionUtils.assertElementContainsText(flash, expectedMessage));
+                Allure.step("Submit the form and wait for the flash message", () -> {
+                        utils.click("Login button", page.locator("button[type='submit']"));
+                        utils.waitUntilVisible("flash message", flash);
+                        attachScreenshot("Page after login attempt");
+                });
 
-                utils.verify("URL after login attempt", "contains '" + expectedUrlPart + "'", page::url,
-                                () -> UiAssertionUtils.assertUrlContains(page, expectedUrlPart));
+                Allure.step("Verify the login result", () -> {
+                        // Capture the real text and URL, useful when the assertion below fails
+                        attachText("Actual flash message", flash.innerText().trim());
+                        attachText("Actual URL", page.url());
+
+                        utils.verify("Flash message", "contains '" + expectedMessage + "'", flash::innerText,
+                                        () -> UiAssertionUtils.assertElementContainsText(flash, expectedMessage));
+
+                        utils.verify("URL after login attempt", "contains '" + expectedUrlPart + "'", page::url,
+                                        () -> UiAssertionUtils.assertUrlContains(page, expectedUrlPart));
+                });
         }
 
         // ====================================================================
@@ -176,18 +232,30 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testDynamicLoadingRevealsHiddenText(String label, String path) {
                 utils.startTest("Dynamic loading - " + label);
 
-                utils.navigateTo(BASE_URL + path);
+                Allure.parameter("Example", label);
+
+                Allure.step("Open the dynamic loading page: " + path, () -> {
+                        utils.navigateTo(BASE_URL + path);
+                });
 
                 Locator finishText = page.locator("#finish h4");
 
-                utils.verify("Finish text before clicking Start", "not visible", finishText::isVisible,
-                                () -> Assert.assertFalse(finishText.isVisible(),
-                                                "Finish text should not be visible before Start is clicked"));
+                Allure.step("Check the text is hidden before clicking Start", () -> {
+                        utils.verify("Finish text before clicking Start", "not visible", finishText::isVisible,
+                                        () -> Assert.assertFalse(finishText.isVisible(),
+                                                        "Finish text should not be visible before Start is clicked"));
+                        attachScreenshot("Before clicking Start");
+                });
 
-                utils.clickStartAndWaitForContent();
+                Allure.step("Click Start and wait for the content to load", () -> {
+                        utils.clickStartAndWaitForContent();
+                        attachScreenshot("After loading finished");
+                });
 
-                utils.verify("Dynamically loaded text", "Hello World!", finishText::innerText,
-                                () -> UiAssertionUtils.assertElementTextEquals(finishText, "Hello World!"));
+                Allure.step("Verify the loaded text", () -> {
+                        utils.verify("Dynamically loaded text", "Hello World!", finishText::innerText,
+                                        () -> UiAssertionUtils.assertElementTextEquals(finishText, "Hello World!"));
+                });
         }
 
         // ====================================================================
@@ -201,25 +269,42 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testCheckboxesToggle() {
                 utils.startTest("Checkboxes toggle");
 
-                utils.navigateTo(BASE_URL + "/checkboxes");
+                Allure.step("Open the checkboxes page", () -> {
+                        utils.navigateTo(BASE_URL + "/checkboxes");
+                });
 
                 Locator boxes = page.locator("#checkboxes input[type='checkbox']");
 
-                utils.verify("Number of checkboxes", 2, boxes::count,
-                                () -> UiAssertionUtils.assertElementCount(boxes, 2));
+                Allure.step("Verify the number of checkboxes", () -> {
+                        utils.verify("Number of checkboxes", 2, boxes::count,
+                                        () -> UiAssertionUtils.assertElementCount(boxes, 2));
+                });
 
-                List<boolean[]> rows = utils.toggleAllCheckboxes(boxes);
-                utils.attachCsv("Checkbox state matrix", utils.toCsv(rows));
+                // Collect the before/after states inside a step, then reuse them below
+                List<boolean[]> rows = Allure.step("Toggle every checkbox", () -> {
+                        attachScreenshot("Checkboxes before toggling");
+                        List<boolean[]> result = utils.toggleAllCheckboxes(boxes);
+                        attachScreenshot("Checkboxes after toggling");
+                        return result;
+                });
 
-                utils.verify("Every checkbox changed state", "all checkboxes flipped",
-                                () -> utils.toCsv(rows).replace("\n", " | "),
-                                () -> {
-                                        Assert.assertFalse(rows.isEmpty(), "NOT EXERCISED: no checkbox was toggled");
-                                        for (int i = 0; i < rows.size(); i++) {
-                                                Assert.assertNotEquals(rows.get(i)[1], rows.get(i)[0],
-                                                                "Checkbox " + (i + 1) + " did not change state");
-                                        }
-                                });
+                Allure.step("Attach the before/after state matrix", () -> {
+                        utils.attachCsv("Checkbox state matrix", utils.toCsv(rows));
+                });
+
+                Allure.step("Verify every checkbox changed state", () -> {
+                        utils.verify("Every checkbox changed state", "all checkboxes flipped",
+                                        () -> utils.toCsv(rows).replace("\n", " | "),
+                                        () -> {
+                                                Assert.assertFalse(rows.isEmpty(),
+                                                                "NOT EXERCISED: no checkbox was toggled");
+                                                for (int i = 0; i < rows.size(); i++) {
+                                                        Assert.assertNotEquals(rows.get(i)[1], rows.get(i)[0],
+                                                                        "Checkbox " + (i + 1)
+                                                                                        + " did not change state");
+                                                }
+                                        });
+                });
         }
 
         // ====================================================================
@@ -233,18 +318,28 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testDropdownSelection(String value, String expectedText) {
                 utils.startTest("Dropdown selection - " + expectedText);
 
-                utils.navigateTo(BASE_URL + "/dropdown");
+                Allure.parameter("Value", value);
+                Allure.parameter("Expected text", expectedText);
+
+                Allure.step("Open the dropdown page", () -> {
+                        utils.navigateTo(BASE_URL + "/dropdown");
+                });
 
                 Locator dropdown = page.locator("#dropdown");
                 Locator selected = page.locator("#dropdown option:checked");
 
-                utils.selectByValue("dropdown", dropdown, value);
+                Allure.step("Select option with value '" + value + "'", () -> {
+                        utils.selectByValue("dropdown", dropdown, value);
+                        attachScreenshot("Dropdown after selection");
+                });
 
-                utils.verify("Dropdown value", value, dropdown::inputValue,
-                                () -> Assert.assertEquals(dropdown.inputValue(), value));
+                Allure.step("Verify the selected option", () -> {
+                        utils.verify("Dropdown value", value, dropdown::inputValue,
+                                        () -> Assert.assertEquals(dropdown.inputValue(), value));
 
-                utils.verify("Selected option text", expectedText, selected::textContent,
-                                () -> UiAssertionUtils.assertElementTextEquals(selected, expectedText));
+                        utils.verify("Selected option text", expectedText, selected::textContent,
+                                        () -> UiAssertionUtils.assertElementTextEquals(selected, expectedText));
+                });
         }
 
         // ====================================================================
@@ -258,19 +353,27 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testAddAndRemoveElements() {
                 utils.startTest("Add and remove elements");
 
-                utils.navigateTo(BASE_URL + "/add_remove_elements/");
+                Allure.step("Open the add/remove elements page", () -> {
+                        utils.navigateTo(BASE_URL + "/add_remove_elements/");
+                });
 
                 Locator added = page.locator("#elements button.added-manually");
 
-                utils.clickTimes("Add Element button", page.locator("button[onclick='addElement()']"), 3);
+                Allure.step("Add 3 elements and verify the count", () -> {
+                        utils.clickTimes("Add Element button", page.locator("button[onclick='addElement()']"), 3);
 
-                utils.verify("Elements after adding 3", 3, added::count,
-                                () -> UiAssertionUtils.assertElementCount(added, 3));
+                        utils.verify("Elements after adding 3", 3, added::count,
+                                        () -> UiAssertionUtils.assertElementCount(added, 3));
+                        attachScreenshot("After adding 3 elements");
+                });
 
-                utils.click("first Delete button", added.first());
+                Allure.step("Delete 1 element and verify the count", () -> {
+                        utils.click("first Delete button", added.first());
 
-                utils.verify("Elements after deleting 1", 2, added::count,
-                                () -> UiAssertionUtils.assertElementCount(added, 2));
+                        utils.verify("Elements after deleting 1", 2, added::count,
+                                        () -> UiAssertionUtils.assertElementCount(added, 2));
+                        attachScreenshot("After deleting 1 element");
+                });
         }
 
         // ====================================================================
@@ -285,19 +388,40 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
                         String promptText, String expectedType, String expectedMessage, String expectedResult) {
                 utils.startTest("JS dialog - " + label);
 
-                utils.navigateTo(BASE_URL + "/javascript_alerts");
+                Allure.parameter("Scenario", label);
+                Allure.parameter("Accept dialog", String.valueOf(accept));
 
-                DialogResult dialog = utils.triggerDialog(label, triggerSelector, accept, promptText);
+                Allure.step("Open the JavaScript alerts page", () -> {
+                        utils.navigateTo(BASE_URL + "/javascript_alerts");
+                });
 
-                utils.verify("Dialog type", expectedType, () -> dialog.type,
-                                () -> Assert.assertEquals(dialog.type, expectedType));
+                // Returns the captured dialog so the next steps can assert on it
+                DialogResult dialog = Allure.step(
+                                (accept ? "Accept" : "Dismiss") + " the " + label + " dialog", () -> {
+                                        DialogResult result = utils.triggerDialog(label, triggerSelector, accept,
+                                                        promptText);
+                                        attachText("Captured dialog",
+                                                        "Type: " + result.type + "\n"
+                                                                        + "Message: " + result.message + "\n"
+                                                                        + "Prompt text sent: " + promptText);
+                                        return result;
+                                });
 
-                utils.verify("Dialog message", expectedMessage, () -> dialog.message,
-                                () -> Assert.assertEquals(dialog.message, expectedMessage));
+                Allure.step("Verify the dialog details", () -> {
+                        utils.verify("Dialog type", expectedType, () -> dialog.type,
+                                        () -> Assert.assertEquals(dialog.type, expectedType));
+
+                        utils.verify("Dialog message", expectedMessage, () -> dialog.message,
+                                        () -> Assert.assertEquals(dialog.message, expectedMessage));
+                });
 
                 Locator result = page.locator("#result");
-                utils.verify("Result text on the page", expectedResult, result::innerText,
-                                () -> UiAssertionUtils.assertElementTextEquals(result, expectedResult));
+
+                Allure.step("Verify the result shown on the page", () -> {
+                        attachScreenshot("Page after dialog handled");
+                        utils.verify("Result text on the page", expectedResult, result::innerText,
+                                        () -> UiAssertionUtils.assertElementTextEquals(result, expectedResult));
+                });
         }
 
         // ====================================================================
@@ -311,17 +435,34 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testStatusCodePages(int code) {
                 utils.startTest("Status code page - " + code);
 
-                Response response = utils.navigateTo(BASE_URL + "/status_codes/" + code);
+                Allure.parameter("Expected status", String.valueOf(code));
 
-                Assert.assertNotNull(response, "Navigation returned no response object");
-                utils.attachJson("Response headers", response.headers());
+                Response response = Allure.step("Open the status code page for " + code, () -> {
+                        return utils.navigateTo(BASE_URL + "/status_codes/" + code);
+                });
 
-                utils.verify("HTTP status of the page", code, response::status,
-                                () -> Assert.assertEquals(response.status(), code));
+                Allure.step("Verify the HTTP response", () -> {
+                        Assert.assertNotNull(response, "Navigation returned no response object");
+
+                        attachText("Response summary",
+                                        "URL: " + response.url() + "\n"
+                                                        + "Status: " + response.status() + " "
+                                                        + response.statusText());
+                        utils.attachJson("Response headers", response.headers());
+
+                        utils.verify("HTTP status of the page", code, response::status,
+                                        () -> Assert.assertEquals(response.status(), code));
+                });
 
                 Locator content = page.locator("#content");
-                utils.verify("Page body mentions the status code", "contains '" + code + "'", content::innerText,
-                                () -> UiAssertionUtils.assertElementContainsText(content, String.valueOf(code)));
+
+                Allure.step("Verify the page body mentions the status code", () -> {
+                        attachScreenshot("Status code page body");
+                        utils.verify("Page body mentions the status code", "contains '" + code + "'",
+                                        content::innerText,
+                                        () -> UiAssertionUtils.assertElementContainsText(content,
+                                                        String.valueOf(code)));
+                });
         }
 
         // ====================================================================
@@ -336,11 +477,18 @@ public class PlaywrightUISanityTest extends PlaywrightBaseTest {
         public void testDeliberateFailureForReportDemo() {
                 utils.startTest("Deliberate failure (report demo)");
 
-                utils.navigateTo(BASE_URL);
+                Allure.step("Open the home page", () -> {
+                        utils.navigateTo(BASE_URL);
+                });
 
                 Locator heading = page.locator("h1");
-                utils.verify("Heading equals an intentionally wrong value", "Wrong heading on purpose",
-                                heading::innerText,
-                                () -> UiAssertionUtils.assertElementTextEquals(heading, "Wrong heading on purpose"));
+
+                // The step turns red in the report; the nested verify holds the error details
+                Allure.step("Verify heading against an intentionally wrong value", () -> {
+                        utils.verify("Heading equals an intentionally wrong value", "Wrong heading on purpose",
+                                        heading::innerText,
+                                        () -> UiAssertionUtils.assertElementTextEquals(heading,
+                                                        "Wrong heading on purpose"));
+                });
         }
 }
